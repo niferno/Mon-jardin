@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon Jardin — Éditeur de base de connaissances</title>
+<style>
+  :root {
+    --fond: #f5f5f7; --carte: #fff; --texte: #1d1d1f; --second: #6e6e73; --bord: #d2d2d7;
+    --vert: #3d6b35; --vert-clair: #e7f0e4; --rouge: #8f2b47; --rouge-clair: #f7e4ea; --jaune: #9a6f10;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fond: #1c1c1e; --carte: #2c2c2e; --texte: #f5f5f7; --second: #a1a1a6; --bord: #48484a;
+            --vert: #85c273; --vert-clair: #2f3d2b; --rouge: #ee7891; --rouge-clair: #45262e; --jaune: #ebbd52; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--fond); color: var(--texte); }
+  header { padding: 14px 20px; background: var(--carte); border-bottom: 1px solid var(--bord); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 18px; margin: 0; color: var(--vert); flex: 1 1 auto; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; padding: 10px 20px 0; }
+  nav button { border: 1px solid var(--bord); background: var(--carte); color: var(--texte); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; }
+  nav button[aria-selected="true"] { background: var(--vert); border-color: var(--vert); color: #fff; }
+  main { padding: 16px 20px 60px; }
+  button, .bouton { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--bord); background: var(--carte); color: var(--texte); padding: 6px 12px; }
+  .principal { background: var(--vert); border-color: var(--vert); color: #fff; font-weight: 600; }
+  .danger { color: var(--rouge); }
+  input, select, textarea { font: inherit; color: var(--texte); background: var(--carte); border: 1px solid var(--bord); border-radius: 6px; padding: 5px 7px; width: 100%; }
+  textarea { min-height: 70px; resize: vertical; }
+  label { display: block; font-size: 13px; color: var(--second); margin-bottom: 3px; }
+  .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px 16px; }
+  .champ.large { grid-column: 1 / -1; }
+  .deux { display: grid; grid-template-columns: minmax(230px, 300px) 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 760px) { .deux { grid-template-columns: 1fr; } }
+  .carte { background: var(--carte); border: 1px solid var(--bord); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .carte h2 { font-size: 16px; margin: 0 0 10px; }
+  .carte h3 { font-size: 14px; margin: 16px 0 8px; color: var(--vert); }
+  .liste { max-height: 70vh; overflow: auto; margin-top: 8px; }
+  .liste div { padding: 6px 8px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+  .liste div:hover { background: var(--vert-clair); }
+  .liste div.choisi { background: var(--vert); color: #fff; }
+  .liste small { opacity: .7; }
+  .mois { display: flex; flex-wrap: wrap; gap: 3px; }
+  .mois button { padding: 3px 0; width: 38px; font-size: 12px; }
+  .mois button.actif { background: var(--vert); border-color: var(--vert); color: #fff; }
+  .case { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--texte); }
+  .case input { width: auto; }
+  .puces { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+  .puce { background: var(--vert-clair); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+  .puce button { border: none; background: none; padding: 0 5px; color: var(--second); }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 5px 6px; border-bottom: 1px solid var(--bord); text-align: left; vertical-align: top; }
+  th { font-size: 13px; color: var(--second); font-weight: 500; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .note { color: var(--second); font-size: 13px; }
+  .erreur { color: var(--rouge); } .avert { color: var(--jaune); } .ok { color: var(--vert); font-weight: 600; }
+  #accueil { max-width: 640px; margin: 40px auto; text-align: center; }
+  #depot { border: 2px dashed var(--bord); border-radius: 16px; padding: 40px 20px; margin: 20px 0; }
+  #depot.survol { border-color: var(--vert); background: var(--vert-clair); }
+  .cache { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌱 Mon Jardin — Éditeur de base</h1>
+  <span id="etat" class="note"></span>
+  <button id="btnOuvrir">Ouvrir une base…</button>
+  <button id="btnExporter" class="principal" disabled>Vérifier et exporter</button>
+  <input type="file" id="fichier" accept=".json,application/json" class="cache">
+</header>
+
+<section id="accueil">
+  <h2>Crée ta propre base de plantes et de maladies</h2>
+  <p class="note">1. Dans l'app : ⚙️ → Base de connaissances → <strong>Exporter la base</strong>.<br>
+     2. Ouvre ici le fichier <code>jardin_data.json</code> et modifie ce que tu veux.<br>
+     3. <strong>Vérifier et exporter</strong>, puis dans l'app : <strong>Importer une base personnelle</strong>.</p>
+  <div id="depot">Glisse ton fichier <code>jardin_data.json</code> ici<br><br>
+    <button onclick="document.getElementById('fichier').click()">ou choisis-le</button></div>
+  <p class="note">Tout reste dans ton navigateur : rien n'est envoyé sur Internet. Ton travail est gardé
+     automatiquement dans ce navigateur jusqu'à l'export.</p>
+  <p id="brouillon" class="cache"><button id="btnBrouillon">Reprendre le travail en cours</button></p>
+</section>
+
+<nav id="onglets" class="cache" role="tablist"></nav>
+<main id="contenu" class="cache"></main>
+
+<script>
+"use strict";
+// ———————————————————————————————————————————————————————————————
+// Format attendu par l'app (Donnees.swift). Les types comptent : l'app refuse
+// un nombre écrit comme texte, ou un entier attendu qui arrive avec une virgule.
+// ———————————————————————————————————————————————————————————————
+const CLES_PLANTE = ["nom","fam","germ","repro","iso","cycle","besoin","abri","pt","plant","rec","viv","ev","fleur",
+  "tg","topt","chauffe","lev","prof","esp","m2","recj","tol","eau","ph","conseils","graines","rdt","cat",
+  "eclaircir","tuteur","butter"];
+const MOIS = ["janv","févr","mars","avr","mai","juin","juil","août","sept","oct","nov","déc"];
+const BESOINS = { G: "Gourmand", M: "Moyen", F: "Peu exigeant", L: "Légumineuse (enrichit le sol)" };
+const STOCKAGE = "monjardin-editeur-base";
+
+let base = null;
+let completees = 0; // champs ajoutés à l'ouverture, signalés dans la vérification
+let onglet = "plantes";
+let choix = { plante: 0, probleme: 0 };
+let filtre = { plantes: "", problemes: "" };
+
+// ——— Outils DOM ———
+function el(balise, attrs = {}, ...enfants) {
+  const e = document.createElement(balise);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const x of enfants.flat()) if (x !== null && x !== undefined) e.append(x instanceof Node ? x : document.createTextNode(x));
+  return e;
+}
+function champ(titre, controle, large = false, aide = "") {
+  return el("div", { class: "champ" + (large ? " large" : "") }, el("label", {}, titre), controle,
+    aide ? el("div", { class: "note" }, aide) : null);
+}
+function modifie() {
+  localStorage.setItem(STOCKAGE, JSON.stringify(base));
+  document.getElementById("etat").textContent = "Modifications gardées dans ce navigateur";
+}
+
+// Champs liés à une propriété d'un objet
+function texte(obj, cle, { apres, place = "" } = {}) {
+  const i = el("input", { type: "text", value: obj[cle] ?? "", placeholder: place });
+  i.addEventListener("input", () => { obj[cle] = i.value; modifie(); apres && apres(); });
+  return i;
+}
+function zone(obj, cle) {
+  const t = el("textarea", {}); t.value = obj[cle] ?? "";
+  t.addEventListener("input", () => { obj[cle] = t.value; modifie(); });
+  return t;
+}
+function lignes(obj, cle) { // liste de textes, une par ligne
+  const t = el("textarea", {}); t.value = (obj[cle] || []).join("\n");
+  t.addEventListener("input", () => { obj[cle] = t.value.split("\n").map(s => s.trim()).filter(Boolean); modifie(); });
+  return t;
+}
+function nombre(obj, cle, { entier = false, vide = false, min, max, pas } = {}) {
+  const i = el("input", { type: "number", value: obj[cle] ?? "", min, max, step: pas ?? (entier ? 1 : "any") });
+  i.addEventListener("input", () => {
+    if (i.value === "") { obj[cle] = vide ? null : 0; }
+    else { const n = Number(i.value.replace(",", ".")); obj[cle] = entier ? Math.round(n) : n; }
+    modifie();
+  });
+  return i;
+}
+function liste(obj, cle, options, { apres } = {}) {
+  const s = el("select", {});
+  for (const [v, t] of options) s.append(el("option", { value: v, selected: obj[cle] === v }, t));
+  s.addEventListener("change", () => { obj[cle] = s.value; modifie(); apres && apres(); });
+  return s;
+}
+function coche(obj, cle, titre) {
+  const i = el("input", { type: "checkbox", checked: !!obj[cle] });
+  i.addEventListener("change", () => { obj[cle] = i.checked; modifie(); });
+  return el("label", { class: "case" }, i, titre);
+}
+function mois(obj, cle) {
+  const boite = el("div", { class: "mois" });
+  MOIS.forEach((m, i) => {
+    const n = i + 1;
+    const b = el("button", { type: "button", class: (obj[cle] || []).includes(n) ? "actif" : "" }, m);
+    b.addEventListener("click", () => {
+      const l = new Set(obj[cle] || []);
+      l.has(n) ? l.delete(n) : l.add(n);
+      obj[cle] = [...l].sort((a, b) => a - b);
+      b.classList.toggle("actif"); modifie();
+    });
+    boite.append(b);
+  });
+  return boite;
+}
+
+// ——— Chargement ———
+function charger(texteJSON, source) {
+  let d;
+  try { d = JSON.parse(texteJSON); } catch (e) { alert("Ce fichier n'est pas du JSON valide : " + e.message); return; }
+  if (!d || !Array.isArray(d.plantes) || !Array.isArray(d.familles)) {
+    alert("Ce fichier ne ressemble pas à une base Mon Jardin (il manque les plantes ou les familles)."); return;
+  }
+  base = d;
+  base.typesApport = base.typesApport || (base.apports || []).map(n => ({ nom: n, cat: "Apports", effet: "" }));
+  for (const k of ["bons", "mauvais", "feuilles", "problemes", "symptomes", "contexte", "categories"]) base[k] = base[k] || [];
+  // Fiches incomplètes (fichier fait à la main, ancienne version) : on complète avec des valeurs par défaut
+  completees = 0;
+  const modele = nouvellePlante();
+  for (const pl of base.plantes) for (const k of CLES_PLANTE) if (!(k in pl)) { pl[k] = JSON.parse(JSON.stringify(modele[k])); completees++; }
+  for (const pb of base.problemes) for (const k of ["cible", "sym", "ctx", "solutions", "prevention"]) if (!Array.isArray(pb[k])) pb[k] = [];
+  for (const g of base.symptomes) g.items = g.items || [];
+  choix = { plante: 0, probleme: 0 };
+  modifie();
+  document.getElementById("etat").textContent = source;
+  document.getElementById("accueil").classList.add("cache");
+  document.getElementById("onglets").classList.remove("cache");
+  document.getElementById("contenu").classList.remove("cache");
+  document.getElementById("btnExporter").disabled = false;
+  afficher();
+}
+function lireFichier(f) { const r = new FileReader(); r.onload = () => charger(r.result, "Ouvert : " + f.name); r.readAsText(f, "utf-8"); }
+document.getElementById("fichier").addEventListener("change", e => e.target.files[0] && lireFichier(e.target.files[0]));
+document.getElementById("btnOuvrir").addEventListener("click", () => document.getElementById("fichier").click());
+const depot = document.getElementById("depot");
+depot.addEventListener("dragover", e => { e.preventDefault(); depot.classList.add("survol"); });
+depot.addEventListener("dragleave", () => depot.classList.remove("survol"));
+depot.addEventListener("drop", e => { e.preventDefault(); depot.classList.remove("survol"); e.dataTransfer.files[0] && lireFichier(e.dataTransfer.files[0]); });
+if (localStorage.getItem(STOCKAGE)) {
+  document.getElementById("brouillon").classList.remove("cache");
+  document.getElementById("btnBrouillon").addEventListener("click", () => charger(localStorage.getItem(STOCKAGE), "Travail en cours repris"));
+}
+window.addEventListener("beforeunload", e => { if (base) { e.preventDefault(); e.returnValue = ""; } });
+
+// ——— Onglets ———
+const ONGLETS = [["plantes", "Plantes"], ["problemes", "Maladies et ravageurs"], ["associations", "Associations"],
+                 ["apports", "Types d'apport"], ["infos", "Informations"], ["export", "Vérifier et exporter"]];
+function afficher() {
+  const nav = document.getElementById("onglets"); nav.replaceChildren();
+  for (const [k, t] of ONGLETS) {
+    nav.append(el("button", { role: "tab", "aria-selected": String(onglet === k), onclick: () => { onglet = k; afficher(); } }, t));
+  }
+  const c = document.getElementById("contenu"); c.replaceChildren();
+  ({ plantes: vuePlantes, problemes: vueProblemes, associations: vueAssociations, apports: vueApports,
+     infos: vueInfos, export: vueExport })[onglet](c);
+}
+document.getElementById("btnExporter").addEventListener("click", () => { onglet = "export"; afficher(); });
+
+function nomsPlantes() { return base.plantes.map(p => p.nom).sort((a, b) => a.localeCompare(b, "fr")); }
+function nomFamille(k) { return (base.familles.find(f => f.k === k) || {}).nom || k; }
+
+// ——— Plantes ———
+function nouvellePlante() {
+  return { nom: "Nouvelle plante", fam: "aut", germ: 3, repro: "Allogame (insectes)", iso: "—", cycle: "annuelle", besoin: "M",
+    abri: [], pt: [], plant: [], rec: [], viv: false, ev: false, fleur: false, tg: null, topt: null, chauffe: false,
+    lev: "", prof: "", esp: "", m2: null, recj: "", tol: null, eau: 2, ph: "6 à 7,5", conseils: "", graines: "—",
+    rdt: null, cat: (base.categories[0] || {}).k || "fruits", eclaircir: false, tuteur: null, butter: null };
+}
+function renommerPlante(ancien, nouveau) {
+  if (!ancien || ancien === nouveau) return;
+  for (const a of [...base.bons, ...base.mauvais]) { if (a.a === ancien) a.a = nouveau; if (a.b === ancien) a.b = nouveau; }
+  base.feuilles = base.feuilles.map(n => n === ancien ? nouveau : n);
+  for (const pb of base.problemes) pb.cible = pb.cible.map(n => n === ancien ? nouveau : n);
+}
+function vuePlantes(c) {
+  const f = filtre.plantes.toLowerCase();
+  const indices = base.plantes.map((p, i) => i).filter(i => !f || base.plantes[i].nom.toLowerCase().includes(f))
+    .sort((a, b) => base.plantes[a].nom.localeCompare(base.plantes[b].nom, "fr"));
+  if (!base.plantes[choix.plante]) choix.plante = 0;
+
+  const recherche = el("input", { type: "search", placeholder: "Chercher une plante…", value: filtre.plantes });
+  recherche.addEventListener("input", () => { filtre.plantes = recherche.value; const pos = recherche.selectionStart; afficher();
+    const r = document.querySelector("#contenu input[type=search]"); r.focus(); r.setSelectionRange(pos, pos); });
+  const l = el("div", { class: "liste" });
+  for (const i of indices) {
+    const p = base.plantes[i];
+    l.append(el("div", { class: i === choix.plante ? "choisi" : "", onclick: () => { choix.plante = i; afficher(); } },
+      el("span", {}, p.nom), el("small", {}, nomFamille(p.fam))));
+  }
+  const gauche = el("div", { class: "carte" }, el("h2", {}, `Plantes (${base.plantes.length})`), recherche, l,
+    el("div", { class: "actions" },
+      el("button", { onclick: () => { base.plantes.push(nouvellePlante()); choix.plante = base.plantes.length - 1; filtre.plantes = ""; modifie(); afficher(); } }, "+ Nouvelle"),
+      el("button", { onclick: () => { const p = base.plantes[choix.plante]; if (!p) return;
+        const copie = JSON.parse(JSON.stringify(p)); copie.nom = p.nom + " (copie)"; base.plantes.push(copie);
+        choix.plante = base.plantes.length - 1; modifie(); afficher(); } }, "Dupliquer")));
+  c.append(el("div", { class: "deux" }, gauche, base.plantes[choix.plante] ? fichePlante(base.plantes[choix.plante]) : el("div")));
+}
+function fichePlante(p) {
+  let ancienNom = p.nom;
+  const nom = texte(p, "nom");
+  nom.addEventListener("change", () => { renommerPlante(ancienNom, p.nom); ancienNom = p.nom; modifie(); afficher(); });
+  const familles = base.familles.map(x => [x.k, x.nom]);
+  const categories = base.categories.map(x => [x.k, x.nom]);
+  const estFeuille = el("input", { type: "checkbox", checked: base.feuilles.includes(p.nom) });
+  estFeuille.addEventListener("change", () => {
+    base.feuilles = base.feuilles.filter(n => n !== p.nom); if (estFeuille.checked) base.feuilles.push(p.nom); modifie(); });
+
+  // Rendement, tuteur, buttage : facultatifs
+  const avecRdt = el("input", { type: "checkbox", checked: !!p.rdt });
+  const zoneRdt = el("div", { class: "grille" + (p.rdt ? "" : " cache") });
+  function remplirRdt() { zoneRdt.replaceChildren(champ("Minimum (kg/m²)", nombre(p.rdt, "min", { pas: 0.1 })), champ("Maximum (kg/m²)", nombre(p.rdt, "max", { pas: 0.1 }))); }
+  if (p.rdt) remplirRdt();
+  avecRdt.addEventListener("change", () => { p.rdt = avecRdt.checked ? { min: 1, max: 2 } : null; zoneRdt.classList.toggle("cache", !avecRdt.checked); if (p.rdt) remplirRdt(); modifie(); });
+  const avecButte = el("input", { type: "checkbox", checked: !!p.butter });
+  const zoneButte = el("div", { class: "grille" + (p.butter ? "" : " cache") });
+  function remplirButte() { zoneButte.replaceChildren(champ("Jours après l'installation", nombre(p.butter, "jours", { entier: true, min: 1 })), champ("Libellé", texte(p.butter, "label"))); }
+  if (p.butter) remplirButte();
+  avecButte.addEventListener("change", () => { p.butter = avecButte.checked ? { jours: 30, label: "Butter" } : null; zoneButte.classList.toggle("cache", !avecButte.checked); if (p.butter) remplirButte(); modifie(); });
+  const tuteur = el("input", { type: "text", value: p.tuteur ?? "", placeholder: "vide = pas de tuteur (ex. « Tuteurer »)" });
+  tuteur.addEventListener("input", () => { p.tuteur = tuteur.value.trim() || null; modifie(); });
+
+  return el("div", {},
+    el("div", { class: "carte" }, el("h2", {}, p.nom || "Sans nom"),
+      el("div", { class: "grille" },
+        champ("Nom", nom, false, "Renommer met à jour les associations et les maladies."),
+        champ("Famille", liste(p, "fam", familles, { apres: afficher })),
+        champ("Catégorie", liste(p, "cat", categories)),
+        champ("Besoin en engrais", liste(p, "besoin", Object.entries(BESOINS))),
+        champ("Cycle", texte(p, "cycle", { place: "annuelle, bisannuelle, vivace" })),
+        champ("Besoin en eau", liste({ get eau() { return String(p.eau); }, set eau(v) { p.eau = Number(v); } }, "eau", [["1", "1 · peu"], ["2", "2 · moyen"], ["3", "3 · beaucoup"]])),
+        champ("pH idéal", texte(p, "ph")),
+      ),
+      el("div", { class: "actions" },
+        coche(p, "viv", "Vivace (hors rotation)"), coche(p, "ev", "Engrais vert"), coche(p, "fleur", "Fleur compagne"),
+        el("label", { class: "case" }, estFeuille, "Légume-feuille (supporte l'ombre)"), coche(p, "eclaircir", "À éclaircir"))),
+    el("div", { class: "carte" }, el("h2", {}, "Calendrier"),
+      el("p", { class: "note" }, "Mois pour le climat de référence (semi-continental, Est de la France). L'app décale elle-même pour les autres régions."),
+      champ("Semis à l'abri", mois(p, "abri"), true), champ("Semis en pleine terre", mois(p, "pt"), true),
+      champ("Plantation", mois(p, "plant"), true), champ(p.fleur ? "Floraison" : "Récolte", mois(p, "rec"), true),
+      el("div", { class: "grille" }, champ("Délai avant récolte", texte(p, "recj", { place: "60 à 80 jours après plantation" })))),
+    el("div", { class: "carte" }, el("h2", {}, "Semis et culture"),
+      el("div", { class: "grille" },
+        champ("Germination dès (°C)", nombre(p, "tg", { entier: true, vide: true })),
+        champ("Germination idéale (°C)", nombre(p, "topt", { entier: true, vide: true })),
+        champ("Levée", texte(p, "lev", { place: "6 à 10 jours" })),
+        champ("Profondeur", texte(p, "prof", { place: "1 cm" })),
+        champ("Espacement", texte(p, "esp", { place: "60 × 50 cm" }), false, "Format « rang × rang » : le 2e nombre sert au plan."),
+        champ("Plants par m²", nombre(p, "m2", { vide: true, pas: 0.1 })),
+        champ("Supporte jusqu'à (°C)", nombre(p, "tol", { vide: true, pas: 1 }), false, "Négatif = résiste au gel ; 3 ou plus = frileuse."),
+        champ("Tuteur", tuteur)),
+      el("div", { class: "actions" }, coche(p, "chauffe", "Semis au chaud (maison, tapis chauffant)")),
+      el("h3", {}, "Buttage"), el("label", { class: "case" }, avecButte, "À butter"), zoneButte,
+      el("h3", {}, "Rendement"), el("label", { class: "case" }, avecRdt, "Rendement connu"), zoneRdt),
+    el("div", { class: "carte" }, el("h2", {}, "Conseils et graines"),
+      el("div", { class: "grille" }, champ("Conseils de culture", zone(p, "conseils"), true),
+        champ("Mode de reproduction", texte(p, "repro", { place: "Autogame, Allogame (insectes)…" })),
+        champ("Isolement entre variétés", texte(p, "iso", { place: "500 m, ou — " })),
+        champ("Durée de germination (années)", nombre(p, "germ", { entier: true, min: 0 }), false, "0 = ne se reproduit pas par graines."),
+        champ("Produire ses graines", zone(p, "graines"), true))),
+    el("div", { class: "actions" }, el("button", { class: "danger", onclick: () => {
+      if (!confirm(`Supprimer « ${p.nom} » ? Ses associations disparaissent aussi.`)) return;
+      base.plantes.splice(base.plantes.indexOf(p), 1);
+      base.bons = base.bons.filter(a => a.a !== p.nom && a.b !== p.nom);
+      base.mauvais = base.mauvais.filter(a => a.a !== p.nom && a.b !== p.nom);
+      base.feuilles = base.feuilles.filter(n => n !== p.nom);
+      for (const pb of base.problemes) pb.cible = pb.cible.filter(n => n !== p.nom);
+      choix.plante = 0; modifie(); afficher(); } }, "Supprimer cette plante")));
+}
+
+// ——— Maladies et ravageurs ———
+function tousSymptomes() { return base.symptomes.flatMap(g => g.items.map(it => ({ ...it, groupe: g.groupe }))); }
+function identifiant(texte) {
+  return texte.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 30) || "probleme";
+}
+function vueProblemes(c) {
+  const f = filtre.problemes.toLowerCase();
+  if (!base.problemes[choix.probleme]) choix.probleme = 0;
+  const l = el("div", { class: "liste" });
+  base.problemes.map((p, i) => i).filter(i => !f || base.problemes[i].nom.toLowerCase().includes(f))
+    .sort((a, b) => base.problemes[a].nom.localeCompare(base.problemes[b].nom, "fr"))
+    .forEach(i => { const p = base.problemes[i];
+      l.append(el("div", { class: i === choix.probleme ? "choisi" : "", onclick: () => { choix.probleme = i; afficher(); } },
+        el("span", {}, p.nom), el("small", {}, p.type))); });
+  const recherche = el("input", { type: "search", placeholder: "Chercher…", value: filtre.problemes });
+  recherche.addEventListener("change", () => { filtre.problemes = recherche.value; afficher(); });
+  const gauche = el("div", { class: "carte" }, el("h2", {}, `Problèmes (${base.problemes.length})`), recherche, l,
+    el("div", { class: "actions" }, el("button", { onclick: () => {
+      let id = "nouveau", n = 1; while (base.problemes.some(p => p.id === id)) id = "nouveau_" + (++n);
+      base.problemes.push({ id, nom: "Nouveau problème", type: "Maladie (champignon)", cible: [], sym: [], ctx: [], conf: "", solutions: [], prevention: [] });
+      choix.probleme = base.problemes.length - 1; modifie(); afficher(); } }, "+ Nouveau")));
+  c.append(el("div", { class: "deux" }, gauche, base.problemes[choix.probleme] ? ficheProbleme(base.problemes[choix.probleme]) : el("div")));
+}
+function ficheProbleme(p) {
+  const types = [...new Set(base.problemes.map(x => x.type))];
+  const dl = el("datalist", { id: "types" }, types.map(t => el("option", { value: t })));
+  const type = texte(p, "type"); type.setAttribute("list", "types");
+  const id = texte(p, "id");
+  const nom = texte(p, "nom");
+  nom.addEventListener("change", () => { if (p.id.startsWith("nouveau")) { p.id = identifiant(p.nom); } modifie(); afficher(); });
+
+  // Plantes touchées : plantes, familles entières, ou « * » pour toutes
+  const puces = el("div", { class: "puces" });
+  function libelleCible(v) { return v === "*" ? "Toutes les plantes" : (base.familles.some(f => f.k === v) ? "Famille : " + nomFamille(v) : v); }
+  function dessinerPuces() {
+    puces.replaceChildren(...p.cible.map(v => el("span", { class: "puce" }, libelleCible(v),
+      el("button", { title: "Retirer", onclick: () => { p.cible = p.cible.filter(x => x !== v); modifie(); dessinerPuces(); } }, "×"))));
+  }
+  dessinerPuces();
+  const ajoutCible = el("select", {}, el("option", { value: "" }, "+ Ajouter une plante ou une famille…"),
+    el("option", { value: "*" }, "Toutes les plantes"),
+    el("optgroup", { label: "Familles" }, base.familles.map(f => el("option", { value: f.k }, f.nom))),
+    el("optgroup", { label: "Plantes" }, nomsPlantes().map(n => el("option", { value: n }, n))));
+  ajoutCible.addEventListener("change", () => { const v = ajoutCible.value; if (v && !p.cible.includes(v)) { p.cible.push(v); modifie(); dessinerPuces(); } ajoutCible.value = ""; });
+
+  return el("div", {},
+    el("div", { class: "carte" }, el("h2", {}, p.nom), dl,
+      el("div", { class: "grille" },
+        champ("Nom", nom), champ("Type", type),
+        champ("Identifiant", id, false, "Sans espace ni accent. Ne pas changer celui d'un problème existant : l'app s'en sert (alertes mildiou, oïdium…)."),
+        champ("Comment le reconnaître", zone(p, "conf"), true)),
+      el("h3", {}, "Plantes touchées"), puces, ajoutCible),
+    el("div", { class: "carte" }, el("h2", {}, "Symptômes et contexte"),
+      el("p", { class: "note" }, "Le diagnostic additionne les poids des symptômes cochés par le jardinier : 3 à 5 = signe typique, 1 = signe possible."),
+      tablePoids(p, "sym", tousSymptomes().map(s => [s.id, s.groupe + " · " + s.label]), true),
+      el("h3", {}, "Contexte (météo, lieu…)"),
+      tablePoids(p, "ctx", base.contexte.map(s => [s.id, s.label]), false)),
+    el("div", { class: "carte" }, el("h2", {}, "Que faire"),
+      el("div", { class: "grille" },
+        champ("Solutions (une par ligne)", lignes(p, "solutions"), true),
+        champ("Prévention (une par ligne)", lignes(p, "prevention"), true))),
+    el("div", { class: "actions" }, el("button", { class: "danger", onclick: () => {
+      if (!confirm(`Supprimer « ${p.nom} » ?`)) return;
+      base.problemes.splice(base.problemes.indexOf(p), 1); choix.probleme = 0; modifie(); afficher(); } }, "Supprimer ce problème")));
+}
+function tablePoids(p, cle, options, symptomes) {
+  const corps = el("tbody");
+  function ligne(item) {
+    const s = el("select", {}, options.map(([v, t]) => el("option", { value: v, selected: item.id === v }, t)));
+    s.addEventListener("change", () => { item.id = s.value; modifie(); });
+    const poids = el("select", {}, [1, 2, 3, 4, 5].map(n => el("option", { value: n, selected: item.poids === n }, n)));
+    poids.addEventListener("change", () => { item.poids = Number(poids.value); modifie(); });
+    return el("tr", {}, el("td", {}, s), el("td", { style: "width:80px" }, poids),
+      el("td", { style: "width:40px" }, el("button", { title: "Retirer", onclick: () => { p[cle].splice(p[cle].indexOf(item), 1); modifie(); afficher(); } }, "×")));
+  }
+  p[cle].forEach(it => corps.append(ligne(it)));
+  const boutons = el("div", { class: "actions" },
+    el("button", { onclick: () => { if (!options.length) return; p[cle].push({ id: options[0][0], poids: 2 }); modifie(); afficher(); } }, "+ Ajouter"));
+  if (symptomes) boutons.append(el("button", { onclick: () => {
+    const groupes = base.symptomes.map(g => g.groupe);
+    const g = prompt("Dans quel groupe ?\n" + groupes.map((x, i) => `${i + 1}. ${x}`).join("\n"), "1");
+    const groupe = base.symptomes[Number(g) - 1]; if (!groupe) return;
+    const libelle = prompt("Description du symptôme (ex. « Feuilles enroulées vers le haut ») :"); if (!libelle) return;
+    let id = identifiant(libelle), n = 1; while (tousSymptomes().some(s => s.id === id)) id = identifiant(libelle) + "_" + (++n);
+    groupe.items.push({ id, label: libelle }); p.sym.push({ id, poids: 3 }); modifie(); afficher(); } }, "Créer un nouveau symptôme"));
+  return el("div", {}, el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, symptomes ? "Symptôme" : "Contexte"), el("th", {}, "Poids"), el("th"))), corps), boutons);
+}
+
+// ——— Associations ———
+function vueAssociations(c) {
+  const noms = nomsPlantes();
+  for (const [cle, titre, aide] of [["bons", "Bonnes associations", "Plantes qui s'entraident quand elles poussent côte à côte."],
+                                    ["mauvais", "Mauvaises associations", "Plantes à éloigner l'une de l'autre."]]) {
+    const corps = el("tbody");
+    base[cle].slice().sort((x, y) => x.a.localeCompare(y.a, "fr")).forEach(a => {
+      const choixPlante = (k) => { const s = el("select", {}, noms.map(n => el("option", { value: n, selected: a[k] === n }, n)));
+        s.addEventListener("change", () => { a[k] = s.value; modifie(); }); return s; };
+      corps.append(el("tr", {}, el("td", {}, choixPlante("a")), el("td", {}, choixPlante("b")),
+        el("td", { style: "width:40px" }, el("button", { onclick: () => { base[cle].splice(base[cle].indexOf(a), 1); modifie(); afficher(); } }, "×"))));
+    });
+    c.append(el("div", { class: "carte" }, el("h2", {}, `${titre} (${base[cle].length})`), el("p", { class: "note" }, aide),
+      el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Plante"), el("th", {}, "avec"), el("th"))), corps),
+      el("div", { class: "actions" }, el("button", { onclick: () => { base[cle].push({ a: noms[0], b: noms[1] || noms[0] }); modifie(); afficher(); } }, "+ Ajouter"))));
+  }
+}
+
+// ——— Types d'apport ———
+function vueApports(c) {
+  const cats = [...new Set(base.typesApport.map(t => t.cat))];
+  const dl = el("datalist", { id: "cats" }, cats.map(x => el("option", { value: x })));
+  const corps = el("tbody");
+  base.typesApport.forEach(t => {
+    const cat = texte(t, "cat"); cat.setAttribute("list", "cats");
+    const effet = zone(t, "effet"); effet.style.minHeight = "40px";
+    corps.append(el("tr", {}, el("td", { style: "width:26%" }, texte(t, "nom")), el("td", { style: "width:22%" }, cat), el("td", {}, effet),
+      el("td", { style: "width:40px" }, el("button", { onclick: () => { base.typesApport.splice(base.typesApport.indexOf(t), 1); modifie(); afficher(); } }, "×"))));
+  });
+  c.append(el("div", { class: "carte" }, dl, el("h2", {}, `Types d'apport (${base.typesApport.length})`),
+    el("p", { class: "note" }, "Engrais, amendements, purins, traitements… L'effet s'affiche dans l'app quand on note un apport. Garder les noms utilisés par les conseils de l'app (« Compost mûr », « Purin d'ortie », « Chaux / dolomie »…)."),
+    el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Nom"), el("th", {}, "Catégorie"), el("th", {}, "Effet"), el("th"))), corps),
+    el("div", { class: "actions" }, el("button", { onclick: () => { base.typesApport.push({ nom: "Nouvel apport", cat: cats[0] || "Apports", effet: "" }); modifie(); afficher(); } }, "+ Ajouter"))));
+}
+
+// ——— Informations ———
+function vueInfos(c) {
+  c.append(el("div", { class: "carte" }, el("h2", {}, "Informations de la base"),
+    el("div", { class: "grille" },
+      champ("Version", nombre(base, "version", { entier: true, min: 1 }), false, "Augmentée automatiquement à l'export si tu le souhaites."),
+      champ("Date", texte(base, "date", { place: "2026-09-29" })),
+      champ("Notes (ce qui a changé)", zone(base, "notes"), true))),
+    el("div", { class: "carte" }, el("h2", {}, "Familles botaniques"),
+      el("p", { class: "note" }, "Les familles servent à la rotation et aux couleurs de l'app : elles ne se modifient pas ici."),
+      el("ul", {}, base.familles.map(f => el("li", {}, `${f.nom} (${f.k}) — ${f.exemples}`)))),
+    el("div", { class: "carte" }, el("h2", {}, "Catégories de plantes"),
+      el("table", {}, el("tbody", {}, base.categories.map(k => el("tr", {}, el("td", { style: "width:30%" }, el("code", {}, k.k)), el("td", {}, texte(k, "nom")))))),
+      el("div", { class: "actions" }, el("button", { onclick: () => {
+        const nom = prompt("Nom de la nouvelle catégorie :"); if (!nom) return;
+        base.categories.push({ k: identifiant(nom), nom }); modifie(); afficher(); } }, "+ Nouvelle catégorie"))));
+}
+
+// ——— Vérification (mêmes règles que l'app, plus quelques contrôles) ———
+function verifier() {
+  const erreurs = [], avert = [];
+  const fam = new Set(base.familles.map(f => f.k)), cats = new Set(base.categories.map(c => c.k));
+  const noms = new Set(), estEntier = v => Number.isInteger(v), estNombre = v => typeof v === "number" && isFinite(v);
+  if (base.plantes.length < 20) erreurs.push(`Il faut au moins 20 plantes (il y en a ${base.plantes.length}).`);
+  if (!base.problemes.length) erreurs.push("Il faut au moins un problème (maladie, ravageur…).");
+  if (!base.familles.length) erreurs.push("Aucune famille botanique.");
+  if (!base.categories.length) erreurs.push("Aucune catégorie de plantes.");
+  for (const p of base.plantes) {
+    const n = p.nom || "(sans nom)";
+    if (!p.nom || !p.nom.trim()) erreurs.push("Une plante n'a pas de nom.");
+    else if (noms.has(p.nom)) erreurs.push(`« ${n} » existe en double.`);
+    noms.add(p.nom);
+    for (const k of CLES_PLANTE) if (!(k in p)) erreurs.push(`« ${n} » : il manque le champ « ${k} ».`);
+    if (!fam.has(p.fam)) erreurs.push(`« ${n} » : famille inconnue (${p.fam}).`);
+    if (!cats.has(p.cat)) erreurs.push(`« ${n} » : catégorie inconnue (${p.cat}).`);
+    if (!BESOINS[p.besoin]) erreurs.push(`« ${n} » : besoin en engrais invalide.`);
+    if (!estEntier(p.germ)) erreurs.push(`« ${n} » : la durée de germination doit être un nombre entier.`);
+    if (![1, 2, 3].includes(p.eau)) erreurs.push(`« ${n} » : le besoin en eau doit être 1, 2 ou 3.`);
+    for (const k of ["tg", "topt"]) if (p[k] !== null && !estEntier(p[k])) erreurs.push(`« ${n} » : température de germination non entière.`);
+    for (const k of ["m2", "tol"]) if (p[k] !== null && !estNombre(p[k])) erreurs.push(`« ${n} » : « ${k} » doit être un nombre ou vide.`);
+    for (const k of ["abri", "pt", "plant", "rec"]) if (!Array.isArray(p[k]) || p[k].some(m => !estEntier(m) || m < 1 || m > 12)) erreurs.push(`« ${n} » : calendrier invalide.`);
+    if (p.rdt && !(estNombre(p.rdt.min) && estNombre(p.rdt.max))) erreurs.push(`« ${n} » : rendement incomplet.`);
+    if (p.butter && !(estEntier(p.butter.jours) && p.butter.label)) erreurs.push(`« ${n} » : buttage incomplet.`);
+    for (const k of ["repro", "iso", "cycle", "lev", "prof", "esp", "recj", "ph", "conseils", "graines"]) if (typeof p[k] !== "string") erreurs.push(`« ${n} » : « ${k} » doit être un texte.`);
+    if (![...(p.abri || []), ...(p.pt || []), ...(p.plant || [])].length && !p.viv) avert.push(`« ${n} » : aucun mois de semis ni de plantation.`);
+    if (!p.conseils) avert.push(`« ${n} » : pas de conseils de culture.`);
+  }
+  const symptomes = new Set(tousSymptomes().map(s => s.id)), contexte = new Set(base.contexte.map(s => s.id)), ids = new Set();
+  for (const pb of base.problemes) {
+    if (!pb.id || ids.has(pb.id)) erreurs.push(`Problème « ${pb.nom} » : identifiant vide ou en double.`);
+    ids.add(pb.id);
+    for (const v of pb.cible || []) if (v !== "*" && !fam.has(v) && !noms.has(v)) erreurs.push(`« ${pb.nom} » vise « ${v} », qui n'existe pas.`);
+    for (const s of pb.sym || []) if (!symptomes.has(s.id)) erreurs.push(`« ${pb.nom} » : symptôme inconnu (${s.id}).`);
+    for (const s of pb.ctx || []) if (!contexte.has(s.id)) erreurs.push(`« ${pb.nom} » : contexte inconnu (${s.id}).`);
+    if (!(pb.cible || []).length) avert.push(`« ${pb.nom} » ne vise aucune plante.`);
+    if (!(pb.sym || []).length) avert.push(`« ${pb.nom} » n'a aucun symptôme : le diagnostic ne le trouvera jamais.`);
+  }
+  for (const k of ["bons", "mauvais"]) for (const a of base[k]) {
+    if (!noms.has(a.a) || !noms.has(a.b)) erreurs.push(`Association ${a.a} / ${a.b} : plante inconnue.`);
+    if (a.a === a.b) avert.push(`Association de « ${a.a} » avec elle-même.`);
+  }
+  if (completees) avert.push(`${completees} champ(s) manquant(s) ont été complétés à l'ouverture : vérifie les fiches concernées.`);
+  const apports = new Set();
+  for (const t of base.typesApport) { if (!t.nom) erreurs.push("Un type d'apport n'a pas de nom."); if (apports.has(t.nom)) erreurs.push(`Type d'apport « ${t.nom} » en double.`); apports.add(t.nom); }
+  return { erreurs: [...new Set(erreurs)], avert: [...new Set(avert)] };
+}
+
+function telecharger(nom, contenu) {
+  const url = URL.createObjectURL(new Blob([contenu], { type: "application/json" }));
+  const a = el("a", { href: url, download: nom }); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function vueExport(c) {
+  const r = verifier();
+  const augmenter = el("input", { type: "checkbox", checked: true });
+  const carte = el("div", { class: "carte" }, el("h2", {}, "Vérification"),
+    r.erreurs.length ? el("p", { class: "erreur" }, `${r.erreurs.length} erreur(s) à corriger avant l'export :`) : el("p", { class: "ok" }, "✓ La base est valide : l'app l'acceptera."),
+    r.erreurs.length ? el("ul", { class: "erreur" }, r.erreurs.slice(0, 60).map(e => el("li", {}, e))) : null,
+    r.avert.length ? el("details", {}, el("summary", { class: "avert" }, `${r.avert.length} remarque(s), non bloquantes`), el("ul", { class: "avert" }, r.avert.map(e => el("li", {}, e)))) : null);
+  const exporter = el("button", { class: "principal", disabled: r.erreurs.length > 0, onclick: () => {
+    if (augmenter.checked) base.version = (Number(base.version) || 0) + 1;
+    base.date = new Date().toISOString().slice(0, 10);
+    base.apports = base.typesApport.map(t => t.nom); // la liste simple, pour les anciennes versions de l'app
+    for (const p of base.plantes) for (const k of ["abri", "pt", "plant", "rec"]) p[k] = [...new Set(p[k])].sort((a, b) => a - b);
+    modifie();
+    telecharger("jardin_data.json", JSON.stringify(base));
+    afficher();
+  } }, "Télécharger jardin_data.json");
+  const exporterVersion = el("button", { disabled: r.erreurs.length > 0, onclick: () =>
+    telecharger("version.json", JSON.stringify({ version: base.version, date: base.date, notes: base.notes || "" }, null, 1)) },
+    "Télécharger version.json");
+  c.append(carte, el("div", { class: "carte" }, el("h2", {}, "Exporter"),
+    el("div", { class: "grille" }, champ("Notes de cette version", zone(base, "notes"), true)),
+    el("label", { class: "case" }, augmenter, `Augmenter la version (actuellement ${base.version})`),
+    el("div", { class: "actions" }, exporter, exporterVersion),
+    el("p", { class: "note" }, "Dans l'app : ⚙️ → Base de connaissances → Importer une base personnelle, puis choisis le fichier. ",
+      "Pour la partager avec d'autres jardiniers, envoie-leur simplement le fichier. ",
+      "version.json ne sert que si tu publies la base en ligne (GitHub).")));
+}
+</script>
+</body>
+</html>
