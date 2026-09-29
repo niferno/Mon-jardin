@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LIEN_APP_STORE">App Store</a> ·
-  <a href="https://niferno.github.io/Mon-jardin/">Site</a> ·
+  <a href="https://niferno.github.io/Mon-jardin/">Page GitHub</a> ·
   <a href="https://niferno.github.io/Mon-jardin/editeur-base.html">Éditeur de base</a> ·
   <a href="https://niferno.github.io/Mon-jardin/assistance.html">Aide</a>
 </p>
@@ -17,10 +17,10 @@
 
 J'ai commencé cette application pour mon propre potager, parce que mes carnets à spirale finissaient
 pleins de terre et mes notes éparpillées un peu partout. Je voulais savoir, chaque matin, ce qu'il y
-avait vraiment à faire : semer, arroser, protéger du gel, traiter avant le mildiou.
+avait vraiment à faire : semer, arroser, protéger du gel, traiter avant le mildiou. pour surtout gagnez du temps qui est a partager entre famille, travail, etc
 
 Ce dépôt contient la **base de connaissances** de l'app (plantes, maladies, associations, engrais) et
-le petit site qui va avec. Le code de l'application n'est pas ici.
+le petit site qui va avec.
 
 ## L'application
 
@@ -34,6 +34,10 @@ le petit site qui va avec. Le code de l'application n'est pas ici.
 
 Pas de compte, pas de publicité, pas de pistage, pas d'intelligence artificielle. Le carnet reste sur
 l'iPhone ; seule la météo a besoin d'Internet.
+
+Le prix pour avoir application dans la totalité pendant toute une vie est de 3€.
+Vous êtes libre avec application, se qui me tiens a coeur a l'heure actuel.
+
 
 **[Télécharger sur l'App Store](LIEN_APP_STORE)** — iPhone, iOS 17 ou plus récent.
 
@@ -71,9 +75,9 @@ dans l'éditeur.
 
 ## Liens
 
-- [Politique de confidentialité](https://niferno.github.io/Mon-jardin/confidentialite.html)
-- [Aide](https://niferno.github.io/Mon-jardin/assistance.html)
-- Contact : ADRESSE_A_REMPLACER
-- Météo : [Open-Meteo](https://open-meteo.com/) (données sous licence CC BY 4.0)
+- [Politique de confidentialité](https://jardin.upsie.fr/confidentialite.html)
+- [Aide](https://jardin.upsie.fr/assistance.html)
+- Contact : app@upsie.fr
+- Météo : [Open-Meteo](https://open-meteo.com/) (données sous licence CC BY 4.0) Grand merci <3
 
-<sub>Conçue et développée en France.</sub>
+<sub>Conçue et développée en France. De IA a étais utilisé pour dévelloper.</sub>
